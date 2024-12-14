@@ -11,6 +11,7 @@ Site: https://pyga.me
 
 # IMPORTS 
 import pygame
+import random
 
 # PYGAME SETUP
 pygame.init()
@@ -20,22 +21,23 @@ clock        = pygame.time.Clock()
 running      = True
 
 # GAME CONSTANTS
-IMGSCALE     = 32   # x y size of images used as tiles
-PLAYERDELAY  = 0.00 # introduces a delay to the movement
-                    # of the player to allow tile by tile
-                    # movement. set to 0 for no delay
-DROPPERDELAY = 0.05 # introduces a delay to the movement
-                    # of the dropper to allow tile by tile
-                    # movement. set to 0 for no delay.
-GRAVDELAY    = 0.05 # the delay of gravity in the game
-X            = screen.get_width()
-Y            = screen.get_height()
-
+# XY SCALE
+IMGSCALE    :int      = 32 
+# DELAYS ON PLAYER, DROPPER MOVEMENT
+# AND GRAVITY
+PLAYERDELAY :float    = 0.00 
+DROPPERDELAY:float    = 0.00 
+GRAVDELAY   :float    = 0.00
+# WIDTH AND LENGTH OF WINDOW
+X           :int      = screen.get_width()
+Y           :int      = screen.get_height()
 # GAME VARIABLES
-levelNumber  = 0
-turnNumber   = 0
+levelNumber:int  = 1 # INITIALISE LEVEL NUMBER
+turnNumber :int  = 0 # INITIALISE TURN NUMBER
 
 # LOAD IMAGES
+# USED ASSERT STATEMENT TO PREVENT BAD IMAGE SIZES
+# FROM BEING USED
 try:
     background:pygame.Surface = pygame.image.load("assets/background.png")
     assert background.get_width() == IMGSCALE and background.get_height() == IMGSCALE
@@ -90,6 +92,13 @@ class Player:
 
         gravCooldown (float): Initialises the cooldown for player
         gravity.
+        
+        points (int): The current amount of points 
+        the player has collected.
+
+        maxEnergy (int): The maximum energy the player can have.
+
+        currentEnergy (int): The current energy of the player.
 
         x (int): The horizontal position of the player. Set to 1.
 
@@ -103,11 +112,14 @@ class Player:
     def __init__(self):
         """The constructor method for class Player."""
 
-        self.cooldown     = 0.00
-        self.gravCooldown = 0.00
-        self.x            = 1
-        self.y            = (Y-(2*IMGSCALE))//IMGSCALE
-        self.playerImage  = p
+        self.cooldown      = 0.00
+        self.gravCooldown  = 0.00
+        self.points        = 0
+        self.maxEnergy     = 100
+        self.currentEnergy = self.maxEnergy
+        self.x             = 1
+        self.y             = (Y-(2*IMGSCALE))//IMGSCALE
+        self.playerImage   = p
 
     def decCooldown(self,n:float) -> None:
         """
@@ -133,6 +145,88 @@ class Player:
 
         self.gravCooldown -= n
 
+    def incPoints(self) -> None:
+        """
+        A method used to increment the number 
+        of points the player has by one.
+        """
+
+        self.points += 1
+        print(self.getPoints())
+
+    def resetPoints(self) -> None:
+        """"A method used to reset points."""
+
+        self.points = 0
+
+    def getPoints(self) -> int:
+        """
+        A method used to retrieve the value
+        of points.
+
+        Returns:
+            points (int): The number of points
+            the player has.
+        """
+
+        return self.points
+
+    def changeEnergy(self,n:int) -> None:
+        """
+        A method used to modify the currentEnergy
+        of the player.
+
+        Parameters:
+            n (int): Integer value to modify the player's
+            current energy by. Can be positive to increase 
+            or negative to decrease.
+        """
+        if n <= self.maxEnergy and n >= 0:
+            self.currentEnergy += n
+        else:
+            self.currentEnergy = 0
+
+    def getEnergy(self) -> int:
+        """
+        A method used to retrieve the currentEnergy.
+
+        Returns:
+            currentEnergy (int): The current energy of the
+            player.
+        """
+
+        return self.currentEnergy
+
+    def getMaxEnergy(self) -> int:
+        """
+        A method used to retrieve the maxEnergy
+        of the player.
+
+        Returns:
+            maxEnergy (int): The max energy the player
+            can have.
+        """
+
+        return self.maxEnergy
+
+    def drawEnergyBar(self) -> None:
+        """
+        A method used to draw a bar representing
+        the current energy of the player.
+        """
+
+        remainingEnergy = self.currentEnergy/self.maxEnergy
+
+        pygame.draw.rect(screen,"blue",(self.x*IMGSCALE,
+                                        self.y*IMGSCALE+29,
+                                        IMGSCALE,
+                                        3))
+        pygame.draw.rect(screen,"cyan",(self.x*IMGSCALE,
+                                        self.y*IMGSCALE+29,
+                                        IMGSCALE*remainingEnergy,
+                                        3))
+
+        
     def setPosition(self,x: int,y: int) -> None:
         """
         A method that sets the position of the
@@ -177,12 +271,22 @@ class Player:
         """
 
         if self.cooldown <= 0:
-            if (currentTiles[self.x-1][self.y] == background):
+            if (room[self.x-1][self.y] == background):
                 self.setPosition(self.x-1,self.y)
                 self.cooldown = PLAYERDELAY
 
-            if (currentTiles[self.x-1][self.y] == box 
-                    and currentTiles[self.x-1][self.y-1] == background):
+            elif ((room[self.x-1][self.y] == box or room[self.x-1][self.y] == itembox) 
+                    and room[self.x-1][self.y-1] == background):
+                player.setPosition(self.x-1,self.y-1)
+
+            elif (room[self.x-1][self.y] == item):
+                self.incPoints()
+                room[self.x-1][self.y] = background
+                player.setPosition(self.x-1,self.y)
+
+            elif (room[self.x-1][self.y-1] == item):
+                self.incPoints()
+                room[self.x-1][self.y-1] = background
                 player.setPosition(self.x-1,self.y-1)
     
     # METHOD TO MOVE THE PLAYER RIGHT
@@ -193,14 +297,20 @@ class Player:
         """
 
         if self.cooldown <= 0 and self.x < 34:
-            if (currentTiles[self.x+1][self.y] == background 
-                    or currentTiles[self.x+1][self.y] == door):
+            if (room[self.x+1][self.y] == background 
+                    or room[self.x+1][self.y] == door):
                 self.setPosition(self.x+1,self.y)
                 self.cooldown = PLAYERDELAY
 
-            if (currentTiles[self.x+1][self.y] == box 
-                    and currentTiles[self.x+1][self.y-1] == background):
+            elif ((room[self.x+1][self.y] == box or room[self.x+1][self.y] == itembox) 
+                  and room[self.x+1][self.y-1] == background):
                 player.setPosition(self.x+1,self.y-1)
+
+            elif (room[self.x+1][self.y] == item):
+                self.incPoints()
+                room[self.x+1][self.y] = background
+                player.setPosition(self.x+1,self.y)
+
 
     def applyPlayerGravity(self) -> None:
         """
@@ -209,7 +319,8 @@ class Player:
         """
         
         if self.gravCooldown <= 0:
-            if currentTiles[self.x][self.y+1] == background:
+            if (room[self.x][self.y+1] == background 
+                or room[self.x][self.y+1] == item):
                 self.setPosition(self.x,self.y+1)
                 self.gravCooldown = PLAYERDELAY
 
@@ -218,11 +329,16 @@ class Player:
         A method that allows the player to break adjacent
         boxes, checking on the left first.
         """
+        if self.currentEnergy > 50:
+            if room[self.x-1][self.y] == box:
+                room[self.x-1][self.y] = background
+            elif room[self.x-1][self.y] == itembox:
+                room[self.x-1][self.y] = item
 
-        if currentTiles[self.x-1][self.y] == box:
-            currentTiles[self.x-1][self.y] = background
-        elif currentTiles[self.x+1][self.y] == box:
-            currentTiles[self.x+1][self.y] = background
+            if room[self.x+1][self.y] == box:
+                room[self.x+1][self.y] = background
+            elif room[self.x+1][self.y] == itembox:
+                room[self.x+1][self.y] = item
 
 # DROPPER
 class Dropper:
@@ -300,6 +416,7 @@ class Dropper:
         """
 
         return self.x
+
     def getY(self) -> int:
         """
         A method used to retrieve the attribute y.
@@ -317,9 +434,11 @@ class Dropper:
         """
 
         if self.cooldown <= 0:
-            if player.getX() < self.getX():
+            if (player.getX() < self.getX() 
+                    and room[self.x-1][self.y] == background):
                 self.x -= 1
-            elif player.getX() > self.getX():
+            elif (player.getX() > self.getX() 
+                and room[self.x+1][self.y] == background):
                 self.x += 1
 
             self.cooldown = DROPPERDELAY
@@ -330,47 +449,97 @@ class Dropper:
         drop boxes. These boxes spawn one tile
         below the dropper.
         """
+
         if self.x == player.getX():
-            currentTiles[self.x][self.y+1] = box
+            room[self.x][self.y+1] = box
+            
     
     def applyBoxGravity(self) -> None:
         """
         A method that handles gravity for the boxes
         dropped by the dropper.
         If a box is found, it is moved down by one tile.
+        If the player is right below a box, they are crushed
+        and the program exits.
         """
 
         if self.gravCooldown <= 0:
             for x in range(0,X//IMGSCALE):
                 for y in range(Y//IMGSCALE-1,0,-1):
-                    if (currentTiles[x][y] == box 
-                            and currentTiles[x][y+1] == background):
-                        currentTiles[x][y] = background
-                        currentTiles[x][y+1] = box
+                    if ((room[x][y] == box or room[x][y] == itembox) 
+                          and (x == player.getX() and y == player.getY()-1)):
+                        exit(0)
+ 
+                    elif (room[x][y] == box 
+                            and room[x][y+1] == background):
+                        room[x][y] = background
+                        room[x][y+1] = box
+
+                    elif (room[x][y] == itembox 
+                          and room[x][y+1] == background):
+                        room[x][y] = background
+                        room[x][y+1] = itembox
+
+def generateRoom(room:list,levelNumber:int) -> list:
+    """
+    Function used to generate the level
+    for the game.
+
+    Parameters:
+        room (list): A 2D list representing the level.
+
+        levelNumber (int): An integer that represents the
+        number level the player is on.
+
+    Returns:
+        room (list): The filled version of the 2D list
+        representing the level.
+    """
+
+    for x in range(X//IMGSCALE):
+        for y in range(0,Y//IMGSCALE):
+            if x == 33 and y == 16-levelNumber:
+                room[x][16-levelNumber] = door
+            elif x == 0:
+                room[x][y] = wall
+            elif x == 33:
+                room[x][y] = wall
+            elif y == 0:
+                room[x][y] = ceiling
+            elif y == 16:
+                room[x][y] = floor
+            else:
+                room[x][y] = background
+
+    if levelNumber == 1:
+        room[5][15] = itembox
+
+    if levelNumber > 1:
+        for i in range(0,levelNumber+1):
+            random.seed(i)
+            randX = random.randint(3,31)
+            randY = random.randint(3,14)
+            for j in range(1,5):
+                if randX+j < 30 and room[randX][randY+1] == background:
+                    room[randX+j][randY] = floor
+
+                    chance = random.randint(1,100)
+                    if 30 < chance < 60:
+                        room[randX+j][randY-1] = box
+                    elif chance < 30:
+                        room[randX+j][randY-1] = itembox
+
+    return room
 
 # HOLDS TILEMAP
-currentTiles:list = [[None for _ in range(Y//IMGSCALE)] 
+room:list = [[None for _ in range(Y//IMGSCALE)] 
     for _ in range(X//IMGSCALE+1)]
 
 # INSTANTIATE PLAYER AND DROPPER
 player  = Player()
 dropper = Dropper()
 
-# GENERATE TILEMAP FOR LEVEL
-for x in range(0,X//IMGSCALE):
-    for y in range(0,Y//IMGSCALE):
-        if x == 33 and y == 15:
-            currentTiles[x][y] = door
-        elif x == 0:
-            currentTiles[x][y] = wall
-        elif x == 33:
-            currentTiles[x][y] = wall
-        elif y == 0:
-            currentTiles[x][y] = ceiling
-        elif y == 16:
-            currentTiles[x][y] = floor
-        else:
-            currentTiles[x][y] = background
+room = generateRoom(room,levelNumber)
 
 while running:
     # POLL FOR EVENTS
@@ -383,18 +552,21 @@ while running:
         if event.type == pygame.KEYDOWN:
             # INCREMENT TURN NUMBER
             turnNumber += 1
+            if player.getEnergy() < player.getMaxEnergy():
+                player.changeEnergy(10)
 
             # HANDLE INPUT FOR KEY 'D'
             if event.key == pygame.K_d:
                 player.moveRight()
 
             # HANDLE INPUT FOR KEY 'A'
-            if event.key == pygame.K_a:
+            elif event.key == pygame.K_a:
                 player.moveLeft()
 
             # HANDLE INPUT FOR KEY 'Q' 
-            if event.key == pygame.K_q:
+            elif event.key == pygame.K_q:
                 player.breakBox()
+                player.changeEnergy(-50)
 
             # HANDLE GRAVITY FOR PLAYER AND BOXES
             player.applyPlayerGravity()
@@ -411,26 +583,28 @@ while running:
     # DRAW LEVEL
     for x in range(0,X//IMGSCALE):
         for y in range(0,Y//IMGSCALE):
-            if currentTiles[x][y] != None:
-                screen.blit(currentTiles[x][y],
+            if room[x][y] != None:
+                screen.blit(room[x][y],
                             (x*IMGSCALE,
                              y*IMGSCALE))
-
-    # CRUSH PLAYER IF BOX HITS THEM
-    if currentTiles[player.getX()][player.getY()-1] == box:
-        exit(0)
     
     # INCREASE LEVEL NUMBER WHEN PLAYER GETS TO NEXT LEVEL
-    if currentTiles[player.getX()][player.getY()] == door:
+    if (room[player.getX()][player.getY()] == door 
+        and player.getPoints() >= levelNumber):
         # INCREMENT LEVEL NUMBER BY 1
         levelNumber += 1
-        
-        # REPLACE OLD POSITION OF DOOR WITH WALL,
-        # ADD DOOR AT NEW POSITION
-        currentTiles[player.getX()][player.getY()] = wall
-        currentTiles[player.getX()][player.getY()-1] = door
 
+        # RESET POINTS
+        player.resetPoints()
+
+        # GENERATE THE ROOM AGAIN
+        generateRoom(room,levelNumber)
+        
+        # SET THE PLAYER TO THE START AGAIN
         player.setPosition(1,(Y - (2*IMGSCALE))//IMGSCALE)
+
+    if levelNumber == 16:
+        exit(0)
 
     # CALCULATE DECREMENT FOR COOLDOWNS
     delta:float = clock.tick()/1000
@@ -440,6 +614,8 @@ while running:
                 (player.getX()*IMGSCALE,
                  player.getY()*IMGSCALE))
 
+    # DRAW PLAYER ENERGY BAR
+    player.drawEnergyBar()
  
     # DRAW DROPPER
     screen.blit(dropper.dropperImage,
