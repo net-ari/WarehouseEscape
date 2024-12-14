@@ -330,10 +330,8 @@ class Dropper:
         drop boxes. These boxes spawn one tile
         below the dropper.
         """
-
-        if self.cooldown <= 0:
-            if self.x == player.getX():
-                currentTiles[self.x][self.y+1] = box
+        if self.x == player.getX():
+            currentTiles[self.x][self.y+1] = box
     
     def applyBoxGravity(self) -> None:
         """
@@ -407,7 +405,7 @@ while running:
                 dropper.moveDropper()
 
             # DROPPER ACTIVATES EVERY SEVEN TURNS
-            if turnNumber % 3== 0:
+            if turnNumber % 7 == 0:
                 dropper.activateDropper()
 
     # DRAW LEVEL
@@ -417,7 +415,7 @@ while running:
                 screen.blit(currentTiles[x][y],
                             (x*IMGSCALE,
                              y*IMGSCALE))
-    
+
     # CRUSH PLAYER IF BOX HITS THEM
     if currentTiles[player.getX()][player.getY()-1] == box:
         exit(0)
