@@ -39,19 +39,19 @@ turnNumber :int  = 0 # INITIALISE TURN NUMBER
 # USED ASSERT STATEMENT TO PREVENT BAD IMAGE SIZES
 # FROM BEING USED
 try:
-    background:pygame.Surface = pygame.image.load("assets/background.png")
+    background:pygame.Surface  = pygame.image.load("assets/background.png")
     assert background.get_width() == IMGSCALE and background.get_height() == IMGSCALE
     background = background.convert()
 
-    floor:pygame.Surface = pygame.image.load("assets/floor.png")
+    floor:pygame.Surface       = pygame.image.load("assets/floor.png")
     assert floor.get_width() == IMGSCALE and floor.get_height() == IMGSCALE
     floor = floor.convert()
 
-    wall:pygame.Surface = pygame.image.load("assets/wall.png")
+    wall:pygame.Surface        = pygame.image.load("assets/wall.png")
     assert wall.get_width() == IMGSCALE and wall.get_height() == IMGSCALE
     wall = wall.convert()
 
-    ceiling:pygame.Surface = pygame.image.load("assets/ceiling.png")
+    ceiling:pygame.Surface     = pygame.image.load("assets/ceiling.png")
     assert ceiling.get_width() == IMGSCALE and ceiling.get_height() == IMGSCALE
     ceiling = ceiling.convert()
 
@@ -59,13 +59,19 @@ try:
     assert box.get_width() == IMGSCALE and box.get_height() == IMGSCALE
     box = box.convert()
 
-    itembox:pygame.Surface = pygame.image.load("assets/itembox.png")
+    itembox:pygame.Surface     = pygame.image.load("assets/itembox.png")
     assert itembox.get_width() == IMGSCALE and itembox.get_height() == IMGSCALE
     itembox = itembox.convert()
 
-    door:pygame.Surface    = pygame.image.load("assets/door.png")
+    door:pygame.Surface        = pygame.image.load("assets/door.png")
     assert door.get_width() == IMGSCALE and door.get_height() == IMGSCALE
     door = door.convert()
+
+    entryPortal:pygame.Surface = pygame.image.load("assets/entryPortal.png")
+    assert entryPortal.get_width() == IMGSCALE and entryPortal.get_height() == IMGSCALE
+    
+    exitPortal:pygame.Surface  = pygame.image.load("assets/exitPortal.png")
+    assert exitPortal.get_width() == IMGSCALE and exitPortal.get_height() == IMGSCALE
 
     item:pygame.Surface = pygame.image.load("assets/item.png")
     assert item.get_width() == IMGSCALE and item.get_height() == IMGSCALE
@@ -100,6 +106,12 @@ class Player:
 
         currentEnergy (int): The current energy of the player.
 
+        entryPortalExists (bool): Whether or not the player has
+        created an entry portal.
+
+        exitPortalExists (bool): Whether or not the player has
+        created an exit portal.
+
         x (int): The horizontal position of the player. Set to 1.
 
         y (int): The vertical position of the player. Set to one tile
@@ -112,14 +124,16 @@ class Player:
     def __init__(self):
         """The constructor method for class Player."""
 
-        self.cooldown      = 0.00
-        self.gravCooldown  = 0.00
-        self.points        = 0
-        self.maxEnergy     = 100
-        self.currentEnergy = self.maxEnergy
-        self.x             = 1
-        self.y             = (Y-(2*IMGSCALE))//IMGSCALE
-        self.playerImage   = p
+        self.cooldown          = 0.00
+        self.gravCooldown      = 0.00
+        self.points            = 0
+        self.maxEnergy         = 100
+        self.currentEnergy     = self.maxEnergy
+        self.entryPortalExists = False
+        self.exitPortalExists  = False
+        self.x                 = 1
+        self.y                 = (Y-(2*IMGSCALE))//IMGSCALE
+        self.playerImage       = p
 
     def decCooldown(self,n:float) -> None:
         """
@@ -152,7 +166,6 @@ class Player:
         """
 
         self.points += 1
-        print(self.getPoints())
 
     def resetPoints(self) -> None:
         """"A method used to reset points."""
@@ -226,7 +239,87 @@ class Player:
                                         IMGSCALE*remainingEnergy,
                                         3))
 
+    def makePortal(self,whichDirection:bool) -> None:
+        """
+        A method that allows the player to make a pair
+        of portals. An entry portal at the player's
+        current position, and an exit portal 10 tiles
+        away, in either direction. The direction is
+        based off of the boolean parameter, True being
+        right, False being left.
+
+        Note that there is some strange behaviour regarding
+        portals and platforms, namely that multiple exit
+        portals will appear in the event multiple floor tiles
+        are found in the vertical slice of the grid the 
+        method iterates over. I left this in since it adds some
+        interesting ways to play to the game.
+
+        Parameters:
+            whichDirection (bool): The direction the exit
+            portal will appear in. True is right, False is left.
+        """
+
+        if not self.entryPortalExists:
+            room[self.x][self.y] = entryPortal
+            self.entryPortalExists = True
+
+            if not self.exitPortalExists:
+                if whichDirection and self.x+10 < 33: 
+                    for y in range(Y//IMGSCALE-1,0,-1):
+                        if room[self.x+10][y] == floor and room[self.x+10][y-1] == background:
+                            room[self.x+10][y-1] = exitPortal
+
+                elif not whichDirection and self.x-10 > 0:
+                    for y in range(Y//IMGSCALE-1,0,-1):
+                        if room[self.x-10][y] == floor and room[self.x-10][y-1] == background:
+                            room[self.x-10][y-1] = exitPortal
+
+                self.exitPortalExists = True
+
+    def findPortal(self,whichPortal:bool):
+        """
+        A method used to find a corresponding portal.
+        The boolean parameter is used to distinguish
+        which portal is being searched for, and when
+        a portal is found, the player's position is set
+        to that portal.
+
+        Parameters:
+            whichPortal (bool): A boolean variable signifying
+            whether the portal being searched for is an exitPortal
+            (True), or an entryPortal (False).
+        """
+
+        if whichPortal:
+            for x in range(0,X//IMGSCALE):
+                for y in range(Y//IMGSCALE-1,0,-1):
+                    if room[x][y] == exitPortal:
+                        player.setPosition(x,y)
+        else:
+            for x in range(0,X//IMGSCALE):
+                for y in range(Y//IMGSCALE-1,0,-1):
+                    if room[x][y] == entryPortal:
+                        player.setPosition(x,y)
+
+    def clearPortals(self):
+        """
+        A method used to clear the portals currently
+        on the screen. It scans the grid from the top
+        down for instances of entryPortal or exitPortal
+        and changes them to background tiles.
+        """
+        self.entryPortalExists = False
+        self.exitPortalExists  = False
+
+        for x in range(X//IMGSCALE):
+            for y in range(Y//IMGSCALE):
+                if (room[x][y] == entryPortal 
+                        or room[x][y] == exitPortal):
+                    room[x][y] = background
+
         
+
     def setPosition(self,x: int,y: int) -> None:
         """
         A method that sets the position of the
@@ -275,6 +368,12 @@ class Player:
                 self.setPosition(self.x-1,self.y)
                 self.cooldown = PLAYERDELAY
 
+            if (room[self.x-1][self.y] == entryPortal):
+                self.findPortal(True)
+
+            if (room[self.x-1][self.y] == exitPortal):
+                self.findPortal(False)
+
             elif ((room[self.x-1][self.y] == box or room[self.x-1][self.y] == itembox) 
                     and room[self.x-1][self.y-1] == background):
                 player.setPosition(self.x-1,self.y-1)
@@ -288,6 +387,13 @@ class Player:
                 self.incPoints()
                 room[self.x-1][self.y-1] = background
                 player.setPosition(self.x-1,self.y-1)
+
+            elif (room[self.x-1][self.y-1] == entryPortal):
+                self.findPortal(True)
+
+            elif (room[self.x-1][self.y-1] == exitPortal):
+                self.findPortal(False)
+
     
     # METHOD TO MOVE THE PLAYER RIGHT
     def moveRight(self) -> None:
@@ -302,6 +408,12 @@ class Player:
                 self.setPosition(self.x+1,self.y)
                 self.cooldown = PLAYERDELAY
 
+            elif (room[self.x+1][self.y] == entryPortal):
+                self.findPortal(True)
+
+            elif (room[self.x+1][self.y] == exitPortal):
+                self.findPortal(False)
+
             elif ((room[self.x+1][self.y] == box or room[self.x+1][self.y] == itembox) 
                   and room[self.x+1][self.y-1] == background):
                 player.setPosition(self.x+1,self.y-1)
@@ -310,6 +422,12 @@ class Player:
                 self.incPoints()
                 room[self.x+1][self.y] = background
                 player.setPosition(self.x+1,self.y)
+
+            elif (room[self.x+1][self.y-1] == entryPortal):
+                self.findPortal(True)
+
+            elif (room[self.x+1][self.y-1] == exitPortal):
+                self.findPortal(False)
 
 
     def applyPlayerGravity(self) -> None:
@@ -323,6 +441,12 @@ class Player:
                 or room[self.x][self.y+1] == item):
                 self.setPosition(self.x,self.y+1)
                 self.gravCooldown = PLAYERDELAY
+
+            elif (room[self.x][self.y+1] == entryPortal):
+                self.findPortal(True)
+
+            elif (room[self.x][self.y+1] == exitPortal):
+                self.findPortal(False)
 
     def breakBox(self) -> None:
         """
@@ -466,9 +590,14 @@ class Dropper:
         if self.gravCooldown <= 0:
             for x in range(0,X//IMGSCALE):
                 for y in range(Y//IMGSCALE-1,0,-1):
-                    if ((room[x][y] == box or room[x][y] == itembox) 
-                          and (x == player.getX() and y == player.getY()-1)):
+                    if ((room[x][y] == box or room[x][y] == itembox)
+                            and (x == player.getX() and y == player.getY()-1)):
                         exit(0)
+                    
+                    # STOP BOXES FROM LANDING ON ITEMS TO PREVENT SOFTLOCK
+                    elif (room[x][y] == box 
+                          and (room[x][y+1] == item)):
+                        room[x][y] = background
  
                     elif (room[x][y] == box 
                             and room[x][y+1] == background):
@@ -511,24 +640,19 @@ def generateRoom(room:list,levelNumber:int) -> list:
             else:
                 room[x][y] = background
 
-    if levelNumber == 1:
-        room[5][15] = itembox
+    room[5][15] = itembox
 
     if levelNumber > 1:
         for i in range(0,levelNumber+1):
             random.seed(i)
             randX = random.randint(3,31)
             randY = random.randint(3,14)
-            for j in range(1,5):
+            for j in range(1,4):
                 if randX+j < 30 and room[randX][randY+1] == background:
                     room[randX+j][randY] = floor
-
-                    chance = random.randint(1,100)
-                    if 30 < chance < 60:
-                        room[randX+j][randY-1] = box
-                    elif chance < 30:
-                        room[randX+j][randY-1] = itembox
-
+            if room[randX+1][randY] == floor:
+                room[randX+1][randY-1] = itembox
+                
     return room
 
 # HOLDS TILEMAP
@@ -567,6 +691,15 @@ while running:
             elif event.key == pygame.K_q:
                 player.breakBox()
                 player.changeEnergy(-50)
+
+            elif event.key == pygame.K_RIGHT:
+                player.makePortal(True)
+
+            elif event.key == pygame.K_LEFT:
+                player.makePortal(False)
+
+            elif event.key == pygame.K_r:
+                player.clearPortals()
 
             # HANDLE GRAVITY FOR PLAYER AND BOXES
             player.applyPlayerGravity()
