@@ -32,7 +32,7 @@ GRAVDELAY   :float    = 0.00
 X           :int      = screen.get_width()
 Y           :int      = screen.get_height()
 # GAME VARIABLES
-levelNumber:int  = 1 # INITIALISE LEVEL NUMBER
+levelNumber:int  = 11 # INITIALISE LEVEL NUMBER
 turnNumber :int  = 0 # INITIALISE TURN NUMBER
 
 # LOAD IMAGES
@@ -642,7 +642,12 @@ def generateRoom(room:list,levelNumber:int) -> list:
 
     room[5][15] = itembox
 
-    if levelNumber > 1:
+    # band aid solution to an issue where
+    # past level 11 item box numbers stop
+    # being at least equivalent to the lvl
+    # number.
+
+    if 1 < levelNumber < 11:
         for i in range(0,levelNumber+1):
             random.seed(i)
             randX = random.randint(3,31)
@@ -652,7 +657,18 @@ def generateRoom(room:list,levelNumber:int) -> list:
                     room[randX+j][randY] = floor
             if room[randX+1][randY] == floor:
                 room[randX+1][randY-1] = itembox
-                
+
+    elif levelNumber >= 11:
+        for i in range(0,levelNumber+2):
+            random.seed(i)
+            randX = random.randint(3,31)
+            randY = random.randint(3,14)
+            for j in range(1,4):
+                if randX+j < 30 and room[randX][randY+1] == background:
+                    room[randX+j][randY] = floor
+            if room[randX+1][randY] == floor:
+                room[randX+1][randY-1] = itembox
+           
     return room
 
 # HOLDS TILEMAP
